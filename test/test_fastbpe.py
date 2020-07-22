@@ -1,59 +1,64 @@
 import unittest
-from ozone.puzzle import * 
-from ozone.fastbpe import *
-from torch import Tensor
+from ozone.fastbpe import make_tok_puzzle_vector, make_tok_puzzle_matrix 
+from ozone.fastbpe import BpeGenerator
+import torch
 
 class TestFastBpe(unittest.TestCase):
 
     def setUp(self):
-        vocab = {"twelve":0, 
-                 "thirteen":1, 
-                 "fifteen":2, 
-                 "twenty":3, 
-                 "nineteenth": 4}
-        puzzles = [(("twelve", "thirteen", "fifteen",
-                     "twenty", "nineteenth"),4)]
-        codes_path = "test/data/codes_10k"
-        vocab_path = "test/data/vocab_10k.txt"
-        self.bpe = bpeGenerator(vocab, puzzles, codes_path, vocab_path)
+        puzzles = [(("eat", "ate", "ete",
+                     "tea", "tee"), 2)]
+        codes_path = "test/data/small.codes"
+        vocab_path = "test/data/small.vocab"
+        self.bpe = BpeGenerator(puzzles, codes_path, vocab_path)
         
     def test_new_puzzles(self):
         self.tok_puzzles = self.bpe.generate()
-        assert self.tok_puzzles == [([['twel@@', 've'], 
-                                   ['thir@@', 'teen'], 
-                                   ['fif@@', 'teen'], 
-                                   ['twenty'], 
-                                   ['nin@@', 'et@@', 'e@@', 'enth']], 4)]
+        assert len(self.tok_puzzles) == 1
+        assert self.tok_puzzles[0] == ([['e@@', 'a@@', 't'], 
+                                        ['a@@', 'te'], 
+                                        ['e@@', 'te'], 
+                                        ['te@@', 'a'], 
+                                        ['te@@', 'e']], 2)
 
-    def test_new_vocab(self):
-        self.new_vocab = self.bpe.get_new_vocab()
-        assert self.new_vocab == {'enth': 0, 
-                                  'fif@@': 1, 
-                                  'twel@@': 2, 
-                                  'twenty': 3, 
-                                  'e@@': 4, 
-                                  'teen': 5, 
-                                  'thir@@': 6, 
-                                  've': 7, 
-                                  'nin@@': 8, 
-                                  'et@@': 9}
+
+    def test_get_vocab(self):
+        vocab = self.bpe.get_vocab()
+        assert vocab == {'a@@': 0, 'e@@': 1, 'te': 2, 'te@@': 3, 
+                         'a': 4, 'e': 5, 't': 6}
+
+    def test_make_vector(self):
+        tok_puzzles = self.bpe.generate()
+        vocab = self.bpe.get_vocab()
+        vec = make_tok_puzzle_vector(tok_puzzles[0], vocab)
+        assert vec.shape == torch.Size([1, 175])
+        vec = vec.tolist()
+        assert vec == [[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
+                        0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        1., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]] 
 
     def test_make_matrix(self):
-        matrix = make_tok_puzzle_matrix(self.tok_puzzles, self.new_vocab)
-        assert matrix == Tensor([[0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0.,
-                                  0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0.,
-                                  0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
+        tok_puzzles = self.bpe.generate()
+        vocab = self.bpe.get_vocab()
+        matrix = make_tok_puzzle_matrix(tok_puzzles, vocab)
+        matrix = matrix.tolist()
+        assert matrix == [[[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
+                        0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        1., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]]]
 
 
 if __name__ == "__main__":

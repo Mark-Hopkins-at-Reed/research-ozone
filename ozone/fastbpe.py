@@ -1,29 +1,27 @@
 import fastBPE
 from ozone.puzzle import one_hot
-from ozone.cuda import FloatTensor, LongTensor, cudaify
+from ozone.cuda import FloatTensor, cudaify
+import torch
 
-class bpeGenerator:
-    """First generate tokenized puzzles, then build
-       the tokenized vocab.
+class BpeGenerator:
     """
-    def __init__(self, vocab, puzzles, train_file_path, vocab_file_path):
-        self.vocab = vocab
-        self.new_vocab, self.bpe = self._build_new_vocab(train_file_path,
-                                                         vocab_file_path)
+    First generate tokenized puzzles, then build the tokenized vocab.
+    
+    """
+    def __init__(self, puzzles, train_file_path, vocab_file_path):
+        self.vocab = self._read_vocab(vocab_file_path)
+        self.bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
         self.puzzles = puzzles
         self.new_puzzles = None
-
-    def _build_new_vocab(self, train_file_path, vocab_file_path):
-        bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
-        tok_vocab = bpe.apply(list(self.vocab.keys()))
-        tok_vocab = [word.split(" ") for word in tok_vocab]
-        new_vocab = set([tok for word in tok_vocab for tok in word])
-        tok_to_ix = dict([(v, k) for (k,v) in enumerate(new_vocab)])
-        print("vocab size: {}".format(len(tok_to_ix)))
-        return tok_to_ix, bpe 
-
-    def get_new_vocab(self):
-        return self.new_vocab
+        
+    def _read_vocab(self, vocab_file_path):
+        with open(vocab_file_path) as reader:
+            vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
+            tok_to_ix = dict(vocab)
+        return tok_to_ix
+    
+    def get_vocab(self):
+        return self.vocab
 
     def generate(self):
         '''
@@ -60,15 +58,5 @@ def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
 def make_tok_puzzle_matrix(tok_puzzles, tok_vocab):
     matrix = []
     for tok_puzzle in tok_puzzles:
-        choices, _ = tok_puzzle
-        oneHotVec = []
-        for choice in choices:
-            choice_Vec_list = [one_hot(tok, tok_vocab) for tok in choice]
-            if len(choice_Vec_list) > 4:
-                choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
-                choice_Vec_list = choice_Vec_list[:5]
-            result = [tok for word in choice_Vec_list for tok in word]
-            appendix = [0] * (5*len(tok_vocab) - len(result))
-            oneHotVec += result + appendix 
-        matrix.append(oneHotVec)
-    return cudaify(FloatTensor(matrix))
+        matrix.append(make_tok_puzzle_vector(tok_puzzle, tok_vocab))
+    return cudaify(torch.stack(matrix))
