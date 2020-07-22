@@ -36,7 +36,7 @@ class WordnetPuzzleGenerator(PuzzleGenerator):
     
     def get_vocab(self):
         return self.vocab
-    
+        
     def reset_root(self, root_synset):
         self.root_synset = wn.synset(root_synset)
         self.synset_gen = GetRandomSynset(root_synset)        
@@ -61,7 +61,7 @@ class WordnetPuzzleGenerator(PuzzleGenerator):
         #          (str(w4), 0), (str(w5), 1)]
         random.shuffle(result)
         xyz = tuple([i for (i,_) in result])
-        onehot = [j for (_,j) in result]
+        onehot = [j for (_,j) in result]    
         return (xyz, onehot.index(1))
 
 def one_hot(word, vocab):

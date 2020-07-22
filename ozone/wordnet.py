@@ -1,4 +1,4 @@
-
+    
 import nltk
 import random
 nltk.download('wordnet')
@@ -16,7 +16,7 @@ def hypernym_chain(synset_name):
     e.g. hypernym_chain('boat.n.01')
     
     """
-    synset = wn.sy7nset(synset_name)
+    synset = wn.synset(synset_name)
     result = [synset]
     while len(synset.hypernyms()) > 0:
         synset = synset.hypernyms()[0]
