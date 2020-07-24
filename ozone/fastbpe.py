@@ -5,7 +5,7 @@ import torch
 
 class BpeGenerator:
     """
-    First generate tokenized puzzles, then build the tokenized vocab.
+    Generate the tokenized puzzle
     
     """
     def __init__(self, puzzles, train_file_path, vocab_file_path):
@@ -38,6 +38,12 @@ class BpeGenerator:
         self.new_puzzles = result 
         return result
 
+def read_vocab(vocab_file_path):
+        with open(vocab_file_path) as reader:
+            vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
+            tok_to_ix = dict(vocab)
+        return tok_to_ix
+    
 def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
     '''
     concatenate first 4 tokens if exist, then merge the rest tokens 
