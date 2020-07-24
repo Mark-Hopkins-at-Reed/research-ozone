@@ -1,19 +1,29 @@
 import unittest
 from ozone.fastbpe import make_tok_puzzle_vector, make_tok_puzzle_matrix 
-from ozone.fastbpe import BpeGenerator
+from ozone.fastbpe import BpePuzzleGenerator
 import torch
+
+
+class SimplePuzzleGenerator:
+    
+    def batch_generate(self, number_of_puzzles = 10):
+        return [(("eat", "ate", "ete", "tea", "tee"), 2)]
+ 
+    def generate(self):
+        return (("eat", "ate", "ete", "tea", "tee"), 2)
+
 
 class TestFastBpe(unittest.TestCase):
 
     def setUp(self):
-        puzzles = [(("eat", "ate", "ete",
-                     "tea", "tee"), 2)]
         codes_path = "test/data/small.codes"
         vocab_path = "test/data/small.vocab"
-        self.bpe = BpeGenerator(puzzles, codes_path, vocab_path)
+        self.bpe = BpePuzzleGenerator.from_paths(SimplePuzzleGenerator(), 
+                                                 codes_path, 
+                                                 vocab_path)
         
     def test_new_puzzles(self):
-        self.tok_puzzles = self.bpe.generate()
+        self.tok_puzzles = self.bpe.batch_generate(1)
         assert len(self.tok_puzzles) == 1
         assert self.tok_puzzles[0] == ([['e@@', 'a@@', 't'], 
                                         ['a@@', 'te'], 
@@ -28,9 +38,9 @@ class TestFastBpe(unittest.TestCase):
                          'a': 4, 'e': 5, 't': 6}
 
     def test_make_vector(self):
-        tok_puzzles = self.bpe.generate()
+        tok_puzzle = self.bpe.generate()
         vocab = self.bpe.get_vocab()
-        vec = make_tok_puzzle_vector(tok_puzzles[0], vocab)
+        vec = make_tok_puzzle_vector(tok_puzzle, vocab)
         assert vec.shape == torch.Size([1, 175])
         vec = vec.tolist()
         assert vec == [[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
@@ -45,7 +55,7 @@ class TestFastBpe(unittest.TestCase):
                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]] 
 
     def test_make_matrix(self):
-        tok_puzzles = self.bpe.generate()
+        tok_puzzles = self.bpe.batch_generate(1)
         vocab = self.bpe.get_vocab()
         matrix = make_tok_puzzle_matrix(tok_puzzles, vocab)
         matrix = matrix.tolist()

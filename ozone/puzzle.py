@@ -34,6 +34,9 @@ class WordnetPuzzleGenerator(PuzzleGenerator):
         print("vocab size: {}".format(len(word_to_ix)))
         return word_to_ix
     
+    def max_tokens_per_choice(self):
+        return 1
+    
     def get_vocab(self):
         return self.vocab
         

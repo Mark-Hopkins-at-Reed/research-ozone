@@ -1,25 +1,29 @@
 import fastBPE
-from ozone.puzzle import one_hot
+from ozone.puzzle import one_hot, PuzzleGenerator
 from ozone.cuda import FloatTensor, cudaify
 import torch
 
-class BpeGenerator:
+class BpePuzzleGenerator(PuzzleGenerator):
     """
     Generate the tokenized puzzle
     
     """
-    def __init__(self, puzzles, train_file_path, vocab_file_path):
-        self.vocab = self._read_vocab(vocab_file_path)
-        self.bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
-        self.puzzles = puzzles
-        self.new_puzzles = None
+    def __init__(self, base_puzzle_gen, vocab, bpe):
+        super(BpePuzzleGenerator, self).__init__()
+        self.vocab = vocab
+        self.bpe = bpe
+        self.base_puzzle_gen = base_puzzle_gen
         
-    def _read_vocab(self, vocab_file_path):
+    @staticmethod
+    def _read_vocab(vocab_file_path):
         with open(vocab_file_path) as reader:
             vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
             tok_to_ix = dict(vocab)
         return tok_to_ix
-    
+
+    def max_tokens_per_choice(self):
+        return 5
+     
     def get_vocab(self):
         return self.vocab
 
@@ -30,19 +34,16 @@ class BpeGenerator:
                   ([['do', 'g'], ['ca', 't']], 1), 
                   ([['low', 'er'], ['high', 'er']] 0)]
         '''
-        result = []
-        for puzzle in self.puzzles:
-            tok_puzzle = self.bpe.apply(list(puzzle[0]))
-            new_puzzle = [word.split(" ") for word in tok_puzzle]
-            result.append((new_puzzle, puzzle[1]))
-        self.new_puzzles = result 
-        return result
-
-def read_vocab(vocab_file_path):
-        with open(vocab_file_path) as reader:
-            vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
-            tok_to_ix = dict(vocab)
-        return tok_to_ix
+        puzzle = self.base_puzzle_gen.generate()
+        tok_puzzle = self.bpe.apply(list(puzzle[0]))
+        new_puzzle = ([word.split(" ") for word in tok_puzzle], puzzle[1])
+        return new_puzzle
+    
+    @staticmethod
+    def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
+        vocab = BpePuzzleGenerator._read_vocab(vocab_file_path)
+        bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
+        return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe)
     
 def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
     '''
