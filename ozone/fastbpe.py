@@ -72,19 +72,3 @@ class BpePuzzleGenerator(PuzzleGenerator):
         bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
         return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe)
     
-"""
-def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
-
-    choices, _ = tok_puzzle
-    oneHotVec = []
-    for choice in choices:
-        choice_Vec_list = [one_hot(tok, tok_vocab) for tok in choice]
-        if len(choice_Vec_list) > 4:
-            choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
-            choice_Vec_list = choice_Vec_list[:5]
-        result = [tok for word in choice_Vec_list for tok in word]
-        appendix = [0] * (5*len(tok_vocab) - len(result))
-        oneHotVec += result + appendix 
-    return cudaify(FloatTensor(oneHotVec).view(1, -1))
-"""
-
