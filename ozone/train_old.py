@@ -93,7 +93,9 @@ def predict_k(model, generator, k):
         
 
 def train(final_root_synset, initial_root_synset, num_epochs, 
-          num_puzzles_to_generate, config, multigpu = False):
+          num_puzzles_to_generate, config, puzzle_generator,
+          multigpu = False):
+    
     def maybe_regenerate(puzzle_generator, epoch, prev_loader, prev_test_loader):
         if epoch % 100 == 0:
             dataset = PuzzleDataset.generate(puzzle_generator, num_puzzles_to_generate)
@@ -152,8 +154,7 @@ def train(final_root_synset, initial_root_synset, num_epochs,
     for epoch in range(num_epochs):
         model.train()
         model.zero_grad()
-        loader, test_loader = maybe_regenerate(puzzle_generator, epoch, 
-                                               loader, test_loader)
+        loader, test_loader = maybe_regenerate(epoch, loader, test_loader)
         for data, response in loader:
             input_matrix = data.to(device)
             log_probs = model(input_matrix)

@@ -6,11 +6,10 @@ import time
 import matplotlib.pyplot as plt
 import json
 from datetime import datetime
-import fastBPE
-from ozone.puzzle import make_puzzle_matrix, make_puzzle_targets, WordnetPuzzleGenerator
+from ozone.puzzle import make_puzzle_targets, WordnetPuzzleGenerator
 from ozone.wordnet import hypernym_chain
 from ozone.tconfig import TrainingConfig, vary_hidden_size
-from ozone.fastbpe import BpePuzzleGenerator, make_tok_puzzle_matrix
+from ozone.fastbpe import BpePuzzleGenerator
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -24,10 +23,7 @@ class PuzzleDataset(Dataset):
         self.vocab = puzzle_generator.get_vocab()
         self.puzzle_generator = puzzle_generator
         self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
-        if puzzle_generator.__class__.__name__ == 'BpePuzzleGenerator':
-            self.evidence_matrix = make_tok_puzzle_matrix(puzzles, self.vocab)       
-        else:
-            self.evidence_matrix = make_puzzle_matrix(puzzles, self.vocab)
+        self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(puzzles)
 
     def input_size(self):
         input_size = (len(self.vocab) * 
@@ -40,16 +36,10 @@ class PuzzleDataset(Dataset):
 
     def __len__(self):
         return len(self.evidence_matrix)   
-
  
     @staticmethod
-    def compile_puzzle(generator, puzzle, bpe = False, 
-                       t_path = None, v_path = None):
-        if bpe:
-            vocab = fastBPE.fastBPE([puzzle], t_path, v_path).get_vocab()
-        else:
-            vocab = generator.get_vocab()
-        return make_puzzle_matrix([(puzzle, -1)], vocab)
+    def compile_puzzle(generator, puzzle):
+        return generator.make_puzzle_matrix([(puzzle, -1)])
 
     @staticmethod
     def create_data_loader(dataset, batch_size):
@@ -75,10 +65,8 @@ def evaluate(model, loader):
                     correct += 1
     return correct / total
 
-def predict(model, puzzle, generator, bpe = False, 
-            t_path = None, v_path = None):
-    compiled = PuzzleDataset.compile_puzzle(generator, puzzle, bpe, 
-                                            t_path, v_path)
+def predict(model, puzzle, generator):
+    compiled = PuzzleDataset.compile_puzzle(generator, puzzle)
     model.eval()
     input_matrix = compiled.to(device)
     model = model.to(device)
@@ -86,15 +74,13 @@ def predict(model, puzzle, generator, bpe = False,
     prediction = log_probs.argmax(dim=1).item()
     return prediction
 
-def predict_k(model, generator, k, bpe = False, 
-              t_path = None, v_path = None):
+def predict_k(model, generator, k):
     model.eval()
     with torch.no_grad():
         correct = 0
         for i in range(k):
             puzzle = generator.generate()
-            candidate = predict(model, puzzle[0], generator, 
-                                bpe, t_path, v_path)
+            candidate = predict(model, puzzle[0], generator)
             if candidate == puzzle[1]:
                 correct += 1
             #print(puzzle)
@@ -177,7 +163,6 @@ def train(final_root_synset, initial_root_synset, num_epochs,
                                                              initial_root_synset,
                                                              best_model, 
                                                              best_test_acc)
-        print(test_acc)
         if test_acc is not None:
             scores.append((epoch, test_acc))
         if best_test_acc > .9 and initial_root_synset != final_root_synset:

@@ -41,6 +41,30 @@ class BpePuzzleGenerator(PuzzleGenerator):
     def reset_root(self, root_synset):
         self.base_puzzle_gen.reset_root(root_synset)
 
+    def make_puzzle_matrix(self, tok_puzzles):
+        '''
+        concatenate first 4 tokens if exist, then merge the rest tokens 
+        and append it to the end
+        
+        TODO: Is it possible to get rid of the topmost for-loop using torch tensor ops??
+        
+        '''
+        matrix = []
+        for tok_puzzle in tok_puzzles:
+            choices, _ = tok_puzzle
+            oneHotVec = []
+            for choice in choices:
+                choice_Vec_list = [one_hot(tok, self.vocab) for tok in choice]
+                if len(choice_Vec_list) > 4:
+                    choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
+                    choice_Vec_list = choice_Vec_list[:5]
+                result = [tok for word in choice_Vec_list for tok in word]
+                appendix = [0] * (5*len(self.vocab) - len(result))
+                oneHotVec += result + appendix 
+            matrix.append(oneHotVec)
+        result = cudaify(FloatTensor(matrix))
+        return result 
+
     
     @staticmethod
     def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
@@ -64,26 +88,3 @@ def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
     return cudaify(FloatTensor(oneHotVec).view(1, -1))
 """
 
-def make_tok_puzzle_matrix(tok_puzzles, tok_vocab):
-    '''
-    concatenate first 4 tokens if exist, then merge the rest tokens 
-    and append it to the end
-    
-    TODO: Is it possible to get rid of the topmost for-loop using torch tensor ops??
-    
-    '''
-    matrix = []
-    for tok_puzzle in tok_puzzles:
-        choices, _ = tok_puzzle
-        oneHotVec = []
-        for choice in choices:
-            choice_Vec_list = [one_hot(tok, tok_vocab) for tok in choice]
-            if len(choice_Vec_list) > 4:
-                choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
-                choice_Vec_list = choice_Vec_list[:5]
-            result = [tok for word in choice_Vec_list for tok in word]
-            appendix = [0] * (5*len(tok_vocab) - len(result))
-            oneHotVec += result + appendix 
-        matrix.append(oneHotVec)
-    result = cudaify(FloatTensor(matrix))
-    return result 

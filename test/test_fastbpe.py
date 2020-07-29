@@ -1,5 +1,4 @@
 import unittest
-from ozone.fastbpe import make_tok_puzzle_vector, make_tok_puzzle_matrix 
 from ozone.fastbpe import BpePuzzleGenerator
 import torch
 
@@ -39,8 +38,7 @@ class TestFastBpe(unittest.TestCase):
 
     def test_make_matrix(self):
         tok_puzzles = self.bpe.batch_generate(1)
-        vocab = self.bpe.get_vocab()
-        vec = make_tok_puzzle_matrix(tok_puzzles, vocab)
+        vec = self.bpe.make_puzzle_matrix(tok_puzzles)
         assert vec.shape == torch.Size([1, 175])
         vec = vec.tolist()
         assert vec == [[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
