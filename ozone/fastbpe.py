@@ -1,7 +1,6 @@
 import fastBPE
 from ozone.puzzle import one_hot, PuzzleGenerator
 from ozone.cuda import FloatTensor, cudaify
-import torch
 
 class BpePuzzleGenerator(PuzzleGenerator):
     """
@@ -49,11 +48,9 @@ class BpePuzzleGenerator(PuzzleGenerator):
         bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
         return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe)
     
+"""
 def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
-    '''
-    concatenate first 4 tokens if exist, then merge the rest tokens 
-    and append it to the end
-    '''
+
     choices, _ = tok_puzzle
     oneHotVec = []
     for choice in choices:
@@ -65,8 +62,16 @@ def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
         appendix = [0] * (5*len(tok_vocab) - len(result))
         oneHotVec += result + appendix 
     return cudaify(FloatTensor(oneHotVec).view(1, -1))
+"""
 
 def make_tok_puzzle_matrix(tok_puzzles, tok_vocab):
+    '''
+    concatenate first 4 tokens if exist, then merge the rest tokens 
+    and append it to the end
+    
+    TODO: Is it possible to get rid of the topmost for-loop using torch tensor ops??
+    
+    '''
     matrix = []
     for tok_puzzle in tok_puzzles:
         choices, _ = tok_puzzle

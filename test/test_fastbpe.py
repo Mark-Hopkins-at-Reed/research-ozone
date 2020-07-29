@@ -37,10 +37,10 @@ class TestFastBpe(unittest.TestCase):
         assert vocab == {'a@@': 0, 'e@@': 1, 'te': 2, 'te@@': 3, 
                          'a': 4, 'e': 5, 't': 6}
 
-    def test_make_vector(self):
-        tok_puzzle = self.bpe.generate()
+    def test_make_matrix(self):
+        tok_puzzles = self.bpe.batch_generate(1)
         vocab = self.bpe.get_vocab()
-        vec = make_tok_puzzle_vector(tok_puzzle, vocab)
+        vec = make_tok_puzzle_matrix(tok_puzzles, vocab)
         assert vec.shape == torch.Size([1, 175])
         vec = vec.tolist()
         assert vec == [[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
@@ -53,12 +53,13 @@ class TestFastBpe(unittest.TestCase):
                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
                         0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]] 
-
+    """
     def test_make_matrix(self):
         tok_puzzles = self.bpe.batch_generate(1)
         vocab = self.bpe.get_vocab()
         matrix = make_tok_puzzle_matrix(tok_puzzles, vocab)
-        matrix = matrix.tolist()
+        print(matrix)
+        matrix = matrix.tolist()        
         assert matrix == [[[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
                         0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
                         0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
@@ -69,7 +70,7 @@ class TestFastBpe(unittest.TestCase):
                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
                         0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]]]
-
+    """
 
 if __name__ == "__main__":
     unittest.main()

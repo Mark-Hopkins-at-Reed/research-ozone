@@ -6,27 +6,34 @@ import time
 import matplotlib.pyplot as plt
 import json
 from datetime import datetime
+import fastBPE
 from ozone.puzzle import make_puzzle_matrix, make_puzzle_targets, WordnetPuzzleGenerator
 from ozone.wordnet import hypernym_chain
-from ozone.tconfig import TrainingConfig, vary_dropout_prob, vary_hidden_size, vary_num_layers, vary_learning_rate
+from ozone.tconfig import TrainingConfig, vary_hidden_size
+from ozone.fastbpe import BpePuzzleGenerator, make_tok_puzzle_matrix
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 NUM_CHOICES = 3
 
-
-
 class PuzzleDataset(Dataset):
 
-    def __init__(self, puzzles, vocab):
-        self.vocab = vocab
-        self.evidence_matrix = make_puzzle_matrix(puzzles, vocab)
-        self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
+    def __init__(self, puzzle_generator, num_train):
         self.num_choices = NUM_CHOICES
-
+        puzzles = puzzle_generator.batch_generate(num_train)
+        self.vocab = puzzle_generator.get_vocab()
+        self.puzzle_generator = puzzle_generator
+        self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
+        if puzzle_generator.__class__.__name__ == 'BpePuzzleGenerator':
+            self.evidence_matrix = make_tok_puzzle_matrix(puzzles, self.vocab)       
+        else:
+            self.evidence_matrix = make_puzzle_matrix(puzzles, self.vocab)
 
     def input_size(self):
-        return len(self.vocab) * self.num_choices
+        input_size = (len(self.vocab) * 
+                      self.num_choices * 
+                      self.puzzle_generator.max_tokens_per_choice())
+        return input_size
 
     def __getitem__(self, index):
         return self.evidence_matrix[index], self.response_vector[index]
@@ -34,24 +41,24 @@ class PuzzleDataset(Dataset):
     def __len__(self):
         return len(self.evidence_matrix)   
 
+ 
     @staticmethod
-    def generate(generator, num_train):
-        data = list(set(generator.batch_generate(num_train)))
-        return PuzzleDataset(data, generator.get_vocab())
+    def compile_puzzle(generator, puzzle, bpe = False, 
+                       t_path = None, v_path = None):
+        if bpe:
+            vocab = fastBPE.fastBPE([puzzle], t_path, v_path).get_vocab()
+        else:
+            vocab = generator.get_vocab()
+        return make_puzzle_matrix([(puzzle, -1)], vocab)
 
-    @staticmethod
-    def compile_puzzle(generator, puzzle):
-        return make_puzzle_matrix([(puzzle, -1)], generator.get_vocab())
-   
     @staticmethod
     def create_data_loader(dataset, batch_size):
         dataloader = DataLoader(dataset = dataset, 
                                      batch_size = batch_size, 
                                      shuffle=True)
-        return dataloader
-
+        return dataloader            
      
-
+       
 def evaluate(model, loader):
     """Evaluates the trained network on test data."""
     model.eval()
@@ -68,8 +75,10 @@ def evaluate(model, loader):
                     correct += 1
     return correct / total
 
-def predict(model, puzzle, generator):
-    compiled = PuzzleDataset.compile_puzzle(generator, puzzle)
+def predict(model, puzzle, generator, bpe = False, 
+            t_path = None, v_path = None):
+    compiled = PuzzleDataset.compile_puzzle(generator, puzzle, bpe, 
+                                            t_path, v_path)
     model.eval()
     input_matrix = compiled.to(device)
     model = model.to(device)
@@ -77,13 +86,15 @@ def predict(model, puzzle, generator):
     prediction = log_probs.argmax(dim=1).item()
     return prediction
 
-def predict_k(model, generator, k):
+def predict_k(model, generator, k, bpe = False, 
+              t_path = None, v_path = None):
     model.eval()
     with torch.no_grad():
         correct = 0
         for i in range(k):
             puzzle = generator.generate()
-            candidate = predict(model, puzzle[0], generator)
+            candidate = predict(model, puzzle[0], generator, 
+                                bpe, t_path, v_path)
             if candidate == puzzle[1]:
                 correct += 1
             #print(puzzle)
@@ -93,12 +104,14 @@ def predict_k(model, generator, k):
         
 
 def train(final_root_synset, initial_root_synset, num_epochs, 
-          num_puzzles_to_generate, config, multigpu = False):
-    def maybe_regenerate(puzzle_generator, epoch, prev_loader, prev_test_loader):
+          num_puzzles_to_generate, config, puzzle_generator, 
+          multigpu = False):
+
+    def maybe_regenerate(epoch, prev_loader, prev_test_loader):
         if epoch % 100 == 0:
-            dataset = PuzzleDataset.generate(puzzle_generator, num_puzzles_to_generate)
+            dataset = PuzzleDataset(puzzle_generator, num_puzzles_to_generate)
             loader = DataLoader(dataset = dataset, batch_size = config.get_batch_size(), shuffle=True)
-            test_dataset = PuzzleDataset.generate(puzzle_generator, 1000)
+            test_dataset = PuzzleDataset(puzzle_generator, 1000)
             test_loader = DataLoader(dataset = test_dataset, batch_size = 100, shuffle=False)
             return loader, test_loader
         else:
@@ -126,11 +139,11 @@ def train(final_root_synset, initial_root_synset, num_epochs,
             time_per_epoch = (finish_time - start_time) / epoch
             print('Average time per epoch: {:.2} sec'.format(time_per_epoch))
 
-
     start_time = time.clock()
-    puzzle_generator = WordnetPuzzleGenerator(final_root_synset, NUM_CHOICES)
     puzzle_generator.specificity_lb = 10
-    input_size = NUM_CHOICES * len(puzzle_generator.get_vocab())
+    input_size = (NUM_CHOICES * 
+                  len(puzzle_generator.get_vocab()) * 
+                  puzzle_generator.max_tokens_per_choice())
     output_size = NUM_CHOICES
     net_factory = config.create_network_factory()
     model = net_factory(input_size, output_size)
@@ -152,8 +165,7 @@ def train(final_root_synset, initial_root_synset, num_epochs,
     for epoch in range(num_epochs):
         model.train()
         model.zero_grad()
-        loader, test_loader = maybe_regenerate(puzzle_generator, epoch, 
-                                               loader, test_loader)
+        loader, test_loader = maybe_regenerate(epoch, loader, test_loader)
         for data, response in loader:
             input_matrix = data.to(device)
             log_probs = model(input_matrix)
@@ -165,6 +177,7 @@ def train(final_root_synset, initial_root_synset, num_epochs,
                                                              initial_root_synset,
                                                              best_model, 
                                                              best_test_acc)
+        print(test_acc)
         if test_acc is not None:
             scores.append((epoch, test_acc))
         if best_test_acc > .9 and initial_root_synset != final_root_synset:
@@ -182,14 +195,15 @@ def train(final_root_synset, initial_root_synset, num_epochs,
         maybe_report_time()
     return best_model, scores
 
-def experiment(config, initial_root_synset, final_root_synset):
+def experiment(config, initial_root_synset, final_root_synset, puzzle_gen):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()    
     _, scores = train(final_root_synset = final_root_synset, 
                       initial_root_synset = initial_root_synset,
                       num_epochs=3000000,
                       num_puzzles_to_generate=2000,
-                      config=config,
+                      config=config,                      
+                      puzzle_generator = puzzle_gen,
                       multigpu=False)
     return scores
 
@@ -197,7 +211,7 @@ def experiment(config, initial_root_synset, final_root_synset):
         
         
 
-def run_multiple(experiment_log, configs):
+def run_multiple(experiment_log, configs, puzzle_gen):
     assert(experiment_log.endswith('.exp.json'))    
     log_directory, log_file = os.path.split(experiment_log)
     root_synset = log_file[:-9]
@@ -209,7 +223,7 @@ def run_multiple(experiment_log, configs):
     results = []
     for config in configs:
         print(config.hyperparams)
-        trajectory = experiment(config, initial, final)
+        trajectory = experiment(config, initial, final, puzzle_gen)
         x = [point[0] for point in trajectory]
         y = [point[1] for point in trajectory]
         results.append(x)
@@ -244,15 +258,15 @@ def best_experiments(experiment_log, k=1):
     results = sorted([(-max(exp['y']), exp) for exp in data])
     return results[:k]    
 
-def example_experiment(filename):
+def example_experiment(filename, puzzle_gen):
     sgd_config = TrainingConfig() 
     configs = vary_hidden_size(sgd_config, [100, 200, 400, 800])
-    run_multiple(filename, configs)
+    run_multiple(filename, configs, puzzle_gen)
 
-def baseline_experiment(filename):
+def baseline_experiment(filename, puzzle_gen):
     sgd_config = TrainingConfig() 
     configs = [sgd_config]
-    run_multiple(filename, configs)
+    run_multiple(filename, configs, puzzle_gen)
     
 if __name__ == '__main__':
     import sys
@@ -261,7 +275,22 @@ if __name__ == '__main__':
     except:
         pass
     filename = sys.argv[1]
-    baseline_experiment(filename)
-    
-    
+    try:
+        bpe = sys.argv[2]
+        train_file_path = sys.argv[3]
+        vocab_file_path = sys.argv[4]
+    except IndexError:
+        bpe = "notbpe"
+
+    assert(filename.endswith('.exp.json'))    
+    log_directory, log_file = os.path.split(filename)
+    root_synset = log_file[:-9]   
+    base_puzzle_generator = WordnetPuzzleGenerator(root_synset, NUM_CHOICES)
+
+    if bpe == "bpe":
+        baseline_experiment(filename, BpePuzzleGenerator.from_paths(base_puzzle_generator, 
+                                                              train_file_path, 
+                                                              vocab_file_path))
+    else:   
+        baseline_experiment(filename, base_puzzle_generator)
     
