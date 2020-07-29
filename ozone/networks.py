@@ -15,7 +15,8 @@ class PhraseEncoder(nn.Module):
         super(PhraseEncoder, self).__init__()
         self.dropout_prob = dropout_prob
         self.hidden_size = hidden_size
-        self.linear1 = nn.Linear(vocab_size, hidden_size)    
+
+        self.linear1 = nn.Linear(vocab_size, hidden_size)   
         self.dropout = torch.nn.Dropout(p=dropout_prob)
         #self.layernorm = torch.nn.LayerNorm([hidden_size])
         self.linear2 = nn.Linear(hidden_size, hidden_size)
@@ -122,7 +123,7 @@ class ThreeWayTiedClassifier(nn.Module):
                  dropout_prob, phrase_encoder_constructor):
         super(ThreeWayTiedClassifier, self).__init__()
         self.input_size = input_size
-        self.vocab_size = input_size // 3
+        self.vocab_size = input_size // 3 
         self.hidden_size = hidden_size
         self.dropout_prob = dropout_prob
         self.word_encoder = phrase_encoder_constructor(self.vocab_size, hidden_size)

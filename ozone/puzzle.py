@@ -34,6 +34,9 @@ class WordnetPuzzleGenerator(PuzzleGenerator):
         print("vocab size: {}".format(len(word_to_ix)))
         return word_to_ix
     
+    def max_tokens_per_choice(self):
+        return 1
+    
     def get_vocab(self):
         return self.vocab
         
@@ -64,6 +67,16 @@ class WordnetPuzzleGenerator(PuzzleGenerator):
         onehot = [j for (_,j) in result]    
         return (xyz, onehot.index(1))
 
+    def make_puzzle_matrix(self, puzzles):
+        matrix = []
+        for puzzle in puzzles:
+            choices, _ = puzzle
+            oneHotVec = []
+            for choice in choices:
+                oneHotVec += one_hot(str(choice), self.vocab)
+            matrix.append(oneHotVec)
+        return cudaify(FloatTensor(matrix))
+
 def one_hot(word, vocab):
     vec = [0]*len(vocab)
     vec[vocab[word]] = 1
@@ -75,16 +88,6 @@ def make_puzzle_vector(puzzle, vocab):
     for choice in choices:
         oneHotVec += one_hot(str(choice), vocab)
     return cudaify(FloatTensor(oneHotVec).view(1, -1))
-
-def make_puzzle_matrix(puzzles, vocab):
-    matrix = []
-    for puzzle in puzzles:
-        choices, _ = puzzle
-        oneHotVec = []
-        for choice in choices:
-            oneHotVec += one_hot(str(choice), vocab)
-        matrix.append(oneHotVec)
-    return cudaify(FloatTensor(matrix))
 
 def make_puzzle_target(label):
     return cudaify(LongTensor([label]))
