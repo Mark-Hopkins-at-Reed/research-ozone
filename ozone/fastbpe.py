@@ -38,6 +38,10 @@ class BpePuzzleGenerator(PuzzleGenerator):
         tok_puzzle = self.bpe.apply(list(puzzle[0]))
         new_puzzle = ([word.split(" ") for word in tok_puzzle], puzzle[1])
         return new_puzzle
+
+    def reset_root(self, root_synset):
+        self.base_puzzle_gen.reset_root(root_synset)
+
     
     @staticmethod
     def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
@@ -65,5 +69,16 @@ def make_tok_puzzle_vector(tok_puzzle, tok_vocab):
 def make_tok_puzzle_matrix(tok_puzzles, tok_vocab):
     matrix = []
     for tok_puzzle in tok_puzzles:
-        matrix.append(make_tok_puzzle_vector(tok_puzzle, tok_vocab))
-    return cudaify(torch.stack(matrix))
+        choices, _ = tok_puzzle
+        oneHotVec = []
+        for choice in choices:
+            choice_Vec_list = [one_hot(tok, tok_vocab) for tok in choice]
+            if len(choice_Vec_list) > 4:
+                choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
+                choice_Vec_list = choice_Vec_list[:5]
+            result = [tok for word in choice_Vec_list for tok in word]
+            appendix = [0] * (5*len(tok_vocab) - len(result))
+            oneHotVec += result + appendix 
+        matrix.append(oneHotVec)
+    result = cudaify(FloatTensor(matrix))
+    return result 

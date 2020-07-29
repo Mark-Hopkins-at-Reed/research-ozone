@@ -15,9 +15,8 @@ class PhraseEncoder(nn.Module):
         super(PhraseEncoder, self).__init__()
         self.dropout_prob = dropout_prob
         self.hidden_size = hidden_size
-        ##############################################################################
+
         self.linear1 = nn.Linear(vocab_size, hidden_size)   
-        ############################################################################## 
         self.dropout = torch.nn.Dropout(p=dropout_prob)
         #self.layernorm = torch.nn.LayerNorm([hidden_size])
         self.linear2 = nn.Linear(hidden_size, hidden_size)

@@ -24,15 +24,13 @@ class PuzzleDataset(Dataset):
         self.vocab = puzzle_generator.get_vocab()
         self.puzzle_generator = puzzle_generator
         self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
-        if puzzle_generator.__class__.__name__ == 'PuzzleGenerator':
-            self.evidence_matrix = make_tok_puzzle_matrix(puzzles, self.vocab)        
+        if puzzle_generator.__class__.__name__ == 'BpePuzzleGenerator':
+            self.evidence_matrix = make_tok_puzzle_matrix(puzzles, self.vocab)       
         else:
             self.evidence_matrix = make_puzzle_matrix(puzzles, self.vocab)
 
     def input_size(self):
-        input_size = len(self.vocab) * self.num_choices
-        if self.bpe:
-            input_size = input_size * 5
+        input_size = len(self.vocab) * self.num_choices * max_tokens_per_choice
         return input_size
 
     def __getitem__(self, index):
@@ -139,13 +137,11 @@ def train(final_root_synset, initial_root_synset, num_epochs,
             time_per_epoch = (finish_time - start_time) / epoch
             print('Average time per epoch: {:.2} sec'.format(time_per_epoch))
 
-
     start_time = time.clock()
     puzzle_generator.specificity_lb = 10
     input_size = (NUM_CHOICES * 
                   len(puzzle_generator.get_vocab()) * 
                   puzzle_generator.max_tokens_per_choice())
-    print(input_size)
     output_size = NUM_CHOICES
     net_factory = config.create_network_factory()
     model = net_factory(input_size, output_size)
@@ -179,6 +175,7 @@ def train(final_root_synset, initial_root_synset, num_epochs,
                                                              initial_root_synset,
                                                              best_model, 
                                                              best_test_acc)
+        print(test_acc)
         if test_acc is not None:
             scores.append((epoch, test_acc))
         if best_test_acc > .9 and initial_root_synset != final_root_synset:
