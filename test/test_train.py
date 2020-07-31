@@ -13,9 +13,20 @@ from ozone.tconfig import TrainingConfig, vary_hidden_size
 from ozone.fastbpe import BpePuzzleGenerator
 from ozone.train import PuzzleDataset
 
+class MockModel:
+    
+    def __init__(self):
+        pass
+    
+    def to(self, x):
+        pass
+    
+    def __call__(self, input_vec):
+        pass
+
 class TestTrain(unittest.TestCase):
 
-    def SetUp(self):
+    def setUp(self):
         codes_path = "data/codes_10k"
         vocab_path = "data/vocab_10k.txt"
         num_train = 3

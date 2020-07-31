@@ -1,6 +1,6 @@
 import random
-from ozone.wordnet import GetRandomSynset, get_all_hyponyms_from_sense
-from ozone.wordnet import get_all_lemmas_from_sense, normalize_lemma
+from ozone.wordnet import GetRandomSynset
+from ozone.wordnet import get_all_lemmas_from_sense
 from nltk.corpus import wordnet as wn
 from ozone.cuda import FloatTensor, LongTensor, cudaify
 

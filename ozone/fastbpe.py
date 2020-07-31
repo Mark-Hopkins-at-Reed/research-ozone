@@ -12,7 +12,6 @@ class BpePuzzleGenerator(PuzzleGenerator):
         self.vocab = vocab
         self.bpe = bpe
         self.base_puzzle_gen = base_puzzle_gen
-        self.filtered_vocab = None
         
     @staticmethod
     def _read_vocab(vocab_file_path):
@@ -25,10 +24,7 @@ class BpePuzzleGenerator(PuzzleGenerator):
         return 5
      
     def get_vocab(self):
-        #if self.filtered_vocab == None:
         return self.vocab
-        #else:
-        #    return self.filtered_vocab
 
     def generate(self):
         '''
@@ -53,16 +49,6 @@ class BpePuzzleGenerator(PuzzleGenerator):
         TODO: Is it possible to get rid of the topmost for-loop using torch tensor ops??
         
         '''
-
-        #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        '''
-        lower the vocab size from about 10k to a size 
-        which fits the current puzzles 
-        '''
-        used_vocab = [tok for words,_ in tok_puzzles for word in words for tok in word]
-        self.filtered_vocab = dict([(v, k) for (k,v) in enumerate(list(set(used_vocab)))])
-        #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
         matrix = []
         for tok_puzzle in tok_puzzles:
             choices, _ = tok_puzzle
