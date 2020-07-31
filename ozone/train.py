@@ -20,11 +20,11 @@ class PuzzleDataset(Dataset):
     def __init__(self, puzzle_generator, num_train):
         self.num_choices = NUM_CHOICES
         puzzles = puzzle_generator.batch_generate(num_train)
-        self.vocab = puzzle_generator.get_vocab()
         self.puzzle_generator = puzzle_generator
         self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
         self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(puzzles)
-
+        self.vocab = puzzle_generator.get_vocab()
+        
     def input_size(self):
         input_size = (len(self.vocab) * 
                       self.num_choices * 

@@ -65,7 +65,6 @@ class BpePuzzleGenerator(PuzzleGenerator):
         result = cudaify(FloatTensor(matrix))
         return result 
 
-    
     @staticmethod
     def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
         vocab = BpePuzzleGenerator._read_vocab(vocab_file_path)
