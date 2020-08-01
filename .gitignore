@@ -1,5 +1,6 @@
 models/
 results/
 *.egg-info/
+__pycache__/
 ozone/__pycache__/
 test/__pycache__/
