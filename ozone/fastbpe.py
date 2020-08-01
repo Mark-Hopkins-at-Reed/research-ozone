@@ -12,6 +12,7 @@ class BpePuzzleGenerator(PuzzleGenerator):
         self.vocab = vocab
         self.bpe = bpe
         self.base_puzzle_gen = base_puzzle_gen
+        self.num_choices = self.base_puzzle_gen.num_choices
         
     @staticmethod
     def _read_vocab(vocab_file_path):
@@ -19,6 +20,7 @@ class BpePuzzleGenerator(PuzzleGenerator):
             vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
             tok_to_ix = dict(vocab)
         return tok_to_ix
+
 
     def max_tokens_per_choice(self):
         return 5

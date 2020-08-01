@@ -1,5 +1,5 @@
 import torch
-from ozone.networks import ThreeWayTiedClassifier
+from ozone.networks import TiedClassifier
    
 class TrainingConfig:
 
@@ -9,13 +9,14 @@ class TrainingConfig:
         self.hyperparams['optimizer'] = {'name': 'sgd',
                                          'rate': 0.001,
                                          'momentum': 0.9}
-        self.hyperparams['network'] = {'name': '3way',
+        self.hyperparams['network'] = {'name': 'tied',
+                                       'numchoices': 5,
                                        'numlayers': 2,
                                        'hiddensize': 200,
                                        'dropout': {'prob': 0.2},
                                        'layernorm': False,
                                        }
-        self.network_names = {'3way': ThreeWayTiedClassifier}
+        self.network_names = {'tied': TiedClassifier}
     
     
     def __getitem__(self, hparam):
@@ -54,18 +55,6 @@ class TrainingConfig:
         result.hyperparams[param_name] = value
         return result
  
-"""
-def vary_num_layer2s(config, depths):
-    orig_net = config['network']
-    return [orig_net.copy().update({'numlayers': x}) for x in depths]
- 
-def vary_num_layers(config, candidates): 
-    orig_net = config['network'].copy()
-    varied = [orig_net.copy() for x in candidates]
-    for i, candidate in enumerate(candidates):
-        varied[i].update({'numlayers': candidate})
-    return [config.replace('network', net) for net in varied]
-"""
 
 def vary_hyperparam(config, top_level_param, candidates, updater): 
     orig_subdict = config[top_level_param].copy()
@@ -91,25 +80,3 @@ def vary_learning_rate(config, candidates):
                            lambda x, y: x.update({'rate': y}))
 
 
-"""    
-def vary_hidden_size(config, candidates): 
-    orig_net = config['network'].copy()
-    varied = [orig_net.copy() for x in candidates]
-    for i, candidate in enumerate(candidates):
-        varied[i].update({'hiddensize': candidate})
-    return [config.replace('network', net) for net in varied]
-
-    
-def vary_dropout_prob(config, candidates):
-    orig_net = config['network'].copy()
-    varied = [orig_net.copy() for x in candidates]
-    for i, candidate in enumerate(candidates):
-        varied[i].update({'dropout': {'prob': candidate}})
-    return [config.replace('network', net) for net in varied]
-"""  
-"""   
-def vary_learning_rate(config, rates):
-    orig_optim = config['optimizer']
-    return [orig_optim.copy().update({'rate': x}) for x in rates]
-"""
-    

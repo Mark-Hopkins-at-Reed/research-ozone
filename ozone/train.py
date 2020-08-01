@@ -13,12 +13,10 @@ from ozone.fastbpe import BpePuzzleGenerator
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-NUM_CHOICES = 3
-
 class PuzzleDataset(Dataset):
 
     def __init__(self, puzzle_generator, num_train):
-        self.num_choices = NUM_CHOICES
+        self.num_choices = puzzle_generator.num_choices
         puzzles = puzzle_generator.batch_generate(num_train)
         self.puzzle_generator = puzzle_generator
         self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
@@ -127,10 +125,10 @@ def train(final_root_synset, initial_root_synset, num_epochs,
 
     start_time = time.clock()
     puzzle_generator.specificity_lb = 10
-    input_size = (NUM_CHOICES * 
+    input_size = (puzzle_generator.num_choices * 
                   len(puzzle_generator.get_vocab()) * 
                   puzzle_generator.max_tokens_per_choice())
-    output_size = NUM_CHOICES
+    output_size = puzzle_generator.num_choices
     net_factory = config.create_network_factory()
     model = net_factory(input_size, output_size)
     if multigpu and torch.cuda.device_count() > 1:
@@ -270,7 +268,7 @@ if __name__ == '__main__':
     assert(filename.endswith('.exp.json'))    
     log_directory, log_file = os.path.split(filename)
     root_synset = log_file[:-9]   
-    base_puzzle_generator = WordnetPuzzleGenerator(root_synset, NUM_CHOICES)
+    base_puzzle_generator = WordnetPuzzleGenerator(root_synset, 5)
 
     if bpe == "bpe":
         baseline_experiment(filename, BpePuzzleGenerator.from_paths(base_puzzle_generator, 
