@@ -1,9 +1,6 @@
-import random
-from ozone.wordnet import GetRandomSynset
-from ozone.wordnet import get_all_lemmas_from_sense
-from nltk.corpus import wordnet as wn
-from ozone.cuda import FloatTensor, LongTensor, cudaify
-
+import fastBPE
+from ozone.util import cudaify, FloatTensor, LongTensor
+from torch.utils.data import Dataset, DataLoader
 
 class PuzzleGenerator:
     
@@ -16,64 +13,19 @@ class PuzzleGenerator:
     def generate(self):
         raise NotImplementedError('cannot call .generate() on abstract class.')
 
-    
-class WordnetPuzzleGenerator(PuzzleGenerator):
-    
-    def __init__(self, root_synset, num_choices):
-        super(WordnetPuzzleGenerator, self).__init__()
-        self.root_synset = wn.synset(root_synset)
-        self.synset_gen = GetRandomSynset(root_synset)
-        self.vocab = self._build_vocab()
-        self.specificity_lb = 10
-        self.specificity_ub = 5000
-        self.num_choices = num_choices
-        
-    def _build_vocab(self):
-        words = sorted(list(get_all_lemmas_from_sense(self.root_synset)))
-        word_to_ix = dict([(v, k) for (k,v) in enumerate(words)])
-        print("vocab size: {}".format(len(word_to_ix)))
-        return word_to_ix
-    
-    def max_tokens_per_choice(self):
-        return 1
-    
     def get_vocab(self):
-        return self.vocab
-        
-    def reset_root(self, root_synset):
-        self.root_synset = wn.synset(root_synset)
-        self.synset_gen = GetRandomSynset(root_synset)        
-    
-    def generate(self):
-        root = self.synset_gen.random_synset_with_specificity(self.specificity_lb, 
-                                                              self.specificity_ub)
-        while root == self.root_synset:
-            root = self.synset_gen.random_synset_with_specificity(self.specificity_lb,
-                                                                  self.specificity_ub)
-        hyps = get_all_lemmas_from_sense(root) # children?
-        puzzle = random.sample(hyps, self.num_choices - 1)
-        random_hyp = self.synset_gen.random_non_hyponym(root)
-        random_word = random.choice(list(get_all_lemmas_from_sense(random_hyp)))
-        puzzle.append(random_word)
-        result = []
-        for choice in puzzle[:-1]:
-            result.append((str(choice), 0))
-        result.append((str(puzzle[-1]), 1))
-        #(w1, w2, w3, w4, w5) = puzzle#[normalize_lemma(random.choice(s.lemmas()).name()) for s in puzzle]
-        #result = [(str(w1), 0), (str(w2), 0), (str(w3), 0), 
-        #          (str(w4), 0), (str(w5), 1)]
-        random.shuffle(result)
-        xyz = tuple([i for (i,_) in result])
-        onehot = [j for (_,j) in result]    
-        return (xyz, onehot.index(1))
+        raise NotImplementedError('cannot call .get_vocab() on abstract class.')
 
+    def num_choices(self):
+        raise NotImplementedError('cannot call .num_choices() on abstract class.')
+                
     def make_puzzle_matrix(self, puzzles):
         matrix = []
         for puzzle in puzzles:
             choices, _ = puzzle
             oneHotVec = []
             for choice in choices:
-                oneHotVec += one_hot(str(choice), self.vocab)
+                oneHotVec += one_hot(str(choice), self.get_vocab())
             matrix.append(oneHotVec)
         return cudaify(FloatTensor(matrix))
 
@@ -94,4 +46,141 @@ def make_puzzle_target(label):
 
 def make_puzzle_targets(labels):
     return cudaify(LongTensor(labels))
+
+
+
+class BpePuzzleGenerator(PuzzleGenerator):
+    """
+    Generate the tokenized puzzle
+    
+    """
+    def __init__(self, base_puzzle_gen, vocab, bpe):
+        super(BpePuzzleGenerator, self).__init__()
+        self.vocab = vocab
+        self.bpe = bpe
+        self.base_puzzle_gen = base_puzzle_gen
+      
+    def num_choices(self):
+        return self.base_puzzle_gen.num_choices()
+      
+    @staticmethod
+    def _read_vocab(vocab_file_path):
+        with open(vocab_file_path) as reader:
+            vocab = [(line.split()[0], i) for (i, line) in enumerate(reader)]
+            tok_to_ix = dict(vocab)
+        return tok_to_ix
+
+    def max_tokens_per_choice(self):
+        return 5
+     
+    def get_vocab(self):
+        return self.vocab
+
+    def generate(self):
+        '''
+        e.g
+        result = [([['app', 'le'], ['pea', 'r']] , 0), 
+                  ([['do', 'g'], ['ca', 't']], 1), 
+                  ([['low', 'er'], ['high', 'er']] 0)]
+        '''
+        puzzle = self.base_puzzle_gen.generate()
+        tok_puzzle = self.bpe.apply(list(puzzle[0]))
+        new_puzzle = ([word.split(" ") for word in tok_puzzle], puzzle[1])
+        return new_puzzle
+
+    def reset_root(self, root_synset):
+        self.base_puzzle_gen.reset_root(root_synset)
+
+    def make_puzzle_matrix(self, tok_puzzles):
+        '''
+        concatenate first 4 tokens if exist, then merge the rest tokens 
+        and append it to the end
+        
+        TODO: Is it possible to get rid of the topmost for-loop using torch tensor ops??
+        
+        '''
+        matrix = []
+        for tok_puzzle in tok_puzzles:
+            choices, _ = tok_puzzle
+            oneHotVec = []
+            for choice in choices:
+                choice_Vec_list = [one_hot(tok, self.vocab) for tok in choice]
+                if len(choice_Vec_list) > 4:
+                    choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
+                    choice_Vec_list = choice_Vec_list[:5]
+                result = [tok for word in choice_Vec_list for tok in word]
+                appendix = [0] * (5*len(self.vocab) - len(result))
+                oneHotVec += result + appendix 
+            matrix.append(oneHotVec)
+        result = cudaify(FloatTensor(matrix))
+        return result 
+
+    @staticmethod
+    def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
+        vocab = BpePuzzleGenerator._read_vocab(vocab_file_path)
+        bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
+        return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe)
+    
+class PuzzleDataset(Dataset):
+
+    def __init__(self, puzzle_generator, num_train):
+        self.num_choices = puzzle_generator.num_choices()
+        puzzles = puzzle_generator.batch_generate(num_train)
+        self.puzzle_generator = puzzle_generator
+        self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
+        self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(puzzles)
+        self.vocab = puzzle_generator.get_vocab()
+        
+    def input_size(self):
+        input_size = (len(self.vocab) * 
+                      self.num_choices * 
+                      self.puzzle_generator.max_tokens_per_choice())
+        return input_size
+
+    def output_size(self):
+        return self.puzzle_generator.num_choices()
+
+    def __getitem__(self, index):
+        return self.evidence_matrix[index], self.response_vector[index]
+
+    def __len__(self):
+        return len(self.evidence_matrix)   
+
+         
+    @staticmethod
+    def compile_puzzle(generator, puzzle):
+        return generator.make_puzzle_matrix([(puzzle, -1)])         
+
+class PuzzleDataLoader:
+    
+    def __init__(self, puzzle_generator, num_train, train_batch_size, 
+                 num_test = 1000, test_batch_size=100):
+        self.puzzle_generator = puzzle_generator
+        self.num_train = num_train
+        self.train_batch_size = train_batch_size
+        self.num_test = num_test
+        self.test_batch_size = test_batch_size
+        self._regenerate()
+
+    def _regenerate(self):
+        self.train_data = PuzzleDataset(self.puzzle_generator, self.num_train)
+        self.train_loader = DataLoader(dataset = self.train_data, 
+                                       batch_size = self.train_batch_size, 
+                                       shuffle=True)
+        self.test_data = PuzzleDataset(self.puzzle_generator, self.num_test)
+        self.test_loader = DataLoader(dataset = self.test_data, 
+                                      batch_size = self.test_batch_size, 
+                                      shuffle=False)
+
+    def get_loaders(self, epoch):
+        if epoch % 100 == 0:
+            self._regenerate()
+        return self.train_loader, self.test_loader     
+
+    def input_size(self):
+        return self.train_data.input_size()
+
+    def output_size(self):
+        return self.train_data.output_size()
+
 

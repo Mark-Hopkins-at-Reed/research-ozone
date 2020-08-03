@@ -83,16 +83,16 @@ class TiedClassifier(nn.Module):
 
     @staticmethod
     def create_factory_method(config):
-        assert(config['name'] == 'tied')
-        hidden_size = config['hiddensize']
-        num_choices = config['numchoices']
-        num_hidden_layers = config['numlayers']
-        if 'dropout' in config:
-            dropout_prob = config['dropout']['prob']
+        net_config = config.get_network_config()
+        assert(net_config['name'] == 'tied')
+        hidden_size = net_config['hiddensize']
+        num_choices = config.get_num_choices()
+        if 'dropout' in net_config:
+            dropout_prob = net_config['dropout']['prob']
         else:
             dropout_prob = None            
         phrase_encoder_constructor = lambda vocab_size, hidden_size: PhraseEncoder(
             vocab_size, hidden_size, dropout_prob = dropout_prob)
         return lambda x, y: TiedClassifier(x, y, num_choices, hidden_size, 
-                                           dropout_prob,
-                                                  phrase_encoder_constructor)
+                                           dropout_prob, 
+                                           phrase_encoder_constructor)
