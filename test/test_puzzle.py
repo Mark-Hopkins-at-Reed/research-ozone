@@ -1,6 +1,7 @@
 import unittest
 import torch
-from ozone.puzzle import WordnetPuzzleGenerator, one_hot, make_puzzle_targets
+from ozone.taxonomy import WordnetTaxonomy, TaxonomyPuzzleGenerator
+from ozone.puzzle import one_hot, make_puzzle_targets
 from ozone.puzzle import BpePuzzleGenerator
 
 
@@ -19,7 +20,8 @@ class SimplePuzzleGenerator:
 class TestPuzzle(unittest.TestCase):
 
     def setUp(self):
-        self.generator = WordnetPuzzleGenerator("apple.n.01", 3)
+        taxonomy = WordnetTaxonomy("apple.n.01")
+        self.generator = TaxonomyPuzzleGenerator(taxonomy, 3)
         codes_path = "test/data/small.codes"
         vocab_path = "test/data/small.vocab"
         self.bpe = BpePuzzleGenerator.from_paths(SimplePuzzleGenerator(), 

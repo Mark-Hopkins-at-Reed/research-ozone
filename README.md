@@ -25,6 +25,10 @@ results inside of an interactive Python interpreter:
 
     from ozone.train import *
     graph_results('results/default.trial1.json')
+
+## To build the Docker image
+
+    docker build --tag mhrmm/ozone:1.1 .
     
 ## To run as a Docker image
 

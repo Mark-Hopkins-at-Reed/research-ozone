@@ -1,8 +1,9 @@
 import unittest
 import torch
 from torch import tensor
-from ozone.puzzle import WordnetPuzzleGenerator
+from ozone.taxonomy import WordnetTaxonomy, TaxonomyPuzzleGenerator
 from ozone.puzzle import BpePuzzleGenerator, PuzzleDataset, PuzzleDataLoader
+from ozone.puzzle import PuzzleGenerator
 from ozone.train import predict, evaluate
 
 class SimpleClassifier:
@@ -22,7 +23,6 @@ class SimpleClassifier:
         result[:,0] = 1
         return result
 
-from ozone.puzzle import PuzzleGenerator
 class SimplePuzzleGenerator(PuzzleGenerator):
     
     def __init__(self):
@@ -31,6 +31,9 @@ class SimplePuzzleGenerator(PuzzleGenerator):
 
     def num_choices(self):
         return 3
+    
+    def get_vocab(self):
+        return self.vocab
 
     def batch_generate(self, number_of_puzzles = 10):
         return [(("eat", "eta", "ete"), 2),
@@ -47,7 +50,8 @@ class TestTrain(unittest.TestCase):
         codes_path = "data/codes_10k"
         vocab_path = "data/vocab_10k.txt"
         num_train = 3
-        self.base_puzzle_generator = WordnetPuzzleGenerator("apple.n.01", 3)
+        taxonomy = WordnetTaxonomy("apple.n.01")
+        self.base_puzzle_generator = TaxonomyPuzzleGenerator(taxonomy, 3)
         self.bpe_puzzle_generator = BpePuzzleGenerator.from_paths(self.base_puzzle_generator, 
                                                                  codes_path, vocab_path)
         self.base_puzzledataset = PuzzleDataset(self.base_puzzle_generator, num_train)
