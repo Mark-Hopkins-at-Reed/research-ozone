@@ -7,7 +7,8 @@
     "tokenizer": {
         "name": "bpe",
         "codes": "data/codes_10k",
-        "vocab": "data/vocab_10k.txt"
+        "vocab": "data/vocab_10k.txt",
+        "num_tokens": 5
     },
     "batchsize": 128,
     "optimizer": {

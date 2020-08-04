@@ -50,10 +50,12 @@ class TestTrain(unittest.TestCase):
         codes_path = "data/codes_10k"
         vocab_path = "data/vocab_10k.txt"
         num_train = 3
+        num_tokens = 5
         taxonomy = WordnetTaxonomy("apple.n.01")
         self.base_puzzle_generator = TaxonomyPuzzleGenerator(taxonomy, 3)
         self.bpe_puzzle_generator = BpePuzzleGenerator.from_paths(self.base_puzzle_generator, 
-                                                                 codes_path, vocab_path)
+                                                                 codes_path, vocab_path,
+                                                                 num_tokens)
         self.base_puzzledataset = PuzzleDataset(self.base_puzzle_generator, num_train)
         self.bpe_puzzledataset = PuzzleDataset(self.bpe_puzzle_generator, num_train)
 

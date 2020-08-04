@@ -24,9 +24,11 @@ class TestPuzzle(unittest.TestCase):
         self.generator = TaxonomyPuzzleGenerator(taxonomy, 3)
         codes_path = "test/data/small.codes"
         vocab_path = "test/data/small.vocab"
+        num_tokens = 5
         self.bpe = BpePuzzleGenerator.from_paths(SimplePuzzleGenerator(), 
                                                  codes_path, 
-                                                 vocab_path)
+                                                 vocab_path, 
+                                                 num_tokens)
 
     def test_vocab(self):
         vocab = self.generator.get_vocab()

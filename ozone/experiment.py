@@ -18,7 +18,10 @@ DEFAULT = {'puzzle': {'genre': 'wordnet', 'root': 'dog.n.01', 'numchoices': 5},
            }
 
 BPE_CONFIG = {'puzzle': {'genre': 'wordnet', 'root': 'dog.n.01', 'numchoices': 5},
-              'tokenizer': {'name': 'bpe', 'codes': 'data/codes_10k', 'vocab': 'data/vocab_10k.txt'},
+              'tokenizer': {'name': 'bpe', 
+                            'codes': 'data/codes_10k', 
+                            'vocab': 'data/vocab_10k.txt', 
+                            'num_tokens': 5},
               'batchsize': 128, 
               'optimizer': {'name': 'sgd', 'rate': 0.001, 'momentum': 0.9}, 
               'network': {'name': 'tied', 
@@ -58,8 +61,9 @@ class TrainingConfig:
         if tparams['name'] == 'bpe':
             codes_path = tparams['codes']
             vocab_path = tparams['vocab']
-            generator = BpePuzzleGenerator.from_paths(generator, 
-                                                      codes_path, vocab_path)              
+            num_tokens = tparams['num_tokens']
+            generator = BpePuzzleGenerator.from_paths(generator, codes_path, 
+                                                      vocab_path, num_tokens)              
         return generator
     
     def create_optimizer_factory(self):
