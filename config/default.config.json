@@ -1,0 +1,23 @@
+[{
+    "puzzle": {
+        "genre": "wordnet",
+        "root": "dog.n.01",
+        "numchoices": 5
+    },
+    "tokenizer": {
+        "name": "simple"
+    },
+    "batchsize": 128,
+    "optimizer": {
+        "name": "sgd",
+        "rate": 0.001,
+        "momentum": 0.9
+    },
+    "network": {
+        "name": "tied",
+        "hiddensize": 200,
+        "dropout": {
+            "prob": 0.2
+        }
+    }
+}]

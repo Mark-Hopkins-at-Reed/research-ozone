@@ -1,12 +1,32 @@
 import unittest
 import torch
-from ozone.puzzle import WordnetPuzzleGenerator, one_hot, make_puzzle_targets
+from ozone.taxonomy import WordnetTaxonomy, TaxonomyPuzzleGenerator
+from ozone.puzzle import one_hot, make_puzzle_targets
+from ozone.puzzle import BpePuzzleGenerator
 
+
+class SimplePuzzleGenerator:
+    
+    def __init__(self):
+        self.num_choices = 3
+    
+    def batch_generate(self, number_of_puzzles = 10):
+        return [(("eat", "ate", "ete", "tea", "tee"), 2)]
+ 
+    def generate(self):
+        return (("eat", "ate", "ete", "tea", "tee"), 2)
+    
 
 class TestPuzzle(unittest.TestCase):
 
     def setUp(self):
-        self.generator = WordnetPuzzleGenerator("apple.n.01", 3)
+        taxonomy = WordnetTaxonomy("apple.n.01")
+        self.generator = TaxonomyPuzzleGenerator(taxonomy, 3)
+        codes_path = "test/data/small.codes"
+        vocab_path = "test/data/small.vocab"
+        self.bpe = BpePuzzleGenerator.from_paths(SimplePuzzleGenerator(), 
+                                                 codes_path, 
+                                                 vocab_path)
 
     def test_vocab(self):
         vocab = self.generator.get_vocab()
@@ -56,6 +76,38 @@ class TestPuzzle(unittest.TestCase):
         labels = [0, 2, 1, 1, 2, 1, 0, 0, 0, 1]
         targets = make_puzzle_targets(labels)
         assert targets.tolist() == labels
+        
+    def test_new_puzzles(self):
+        self.tok_puzzles = self.bpe.batch_generate(1)
+        assert len(self.tok_puzzles) == 1
+        assert self.tok_puzzles[0] == ([['e@@', 'a@@', 't'], 
+                                        ['a@@', 'te'], 
+                                        ['e@@', 'te'], 
+                                        ['te@@', 'a'], 
+                                        ['te@@', 'e']], 2)
+
+
+    def test_get_vocab(self):
+        vocab = self.bpe.get_vocab()
+        assert vocab == {'a@@': 0, 'e@@': 1, 'te': 2, 'te@@': 3, 
+                         'a': 4, 'e': 5, 't': 6}
+
+    def test_make_matrix(self):
+        tok_puzzles = self.bpe.batch_generate(1)
+        vec = self.bpe.make_puzzle_matrix(tok_puzzles)
+        assert vec.shape == torch.Size([1, 175])
+        vec = vec.tolist()
+        assert vec == [[0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 
+                        0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        1., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]] 
+    
 
 if __name__ == "__main__":
     unittest.main()
