@@ -5,6 +5,7 @@ from ozone.taxonomy import WordnetTaxonomy, TaxonomyPuzzleGenerator
 from ozone.puzzle import BpePuzzleGenerator, PuzzleDataset, PuzzleDataLoader
 from ozone.puzzle import PuzzleGenerator
 from ozone.train import predict, evaluate
+from ozone.util import cudaify
 
 class SimpleClassifier:
     
@@ -58,6 +59,8 @@ class TestTrain(unittest.TestCase):
         self.bpe_puzzledataset = PuzzleDataset(self.bpe_puzzle_generator, num_train)
 
     def compare_tensors(self, t1, t2):
+        t1 = cudaify(t1)
+        t2 = cudaify(t2)
         assert t1.shape == t2.shape
         assert torch.allclose(t1, t2)
 

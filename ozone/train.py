@@ -1,10 +1,7 @@
 import torch
 import torch.nn as nn
 import time
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
- 
-
+from ozone.util import cudaify
        
 def evaluate(model, loader):
     """Evaluates the trained network on test data."""
@@ -21,7 +18,7 @@ def evaluate(model, loader):
 def predict(model, input_tensor):
     with torch.no_grad():
         model.eval()
-        input_matrix = input_tensor.to(device)
+        input_matrix = cudaify(input_tensor)
         log_probs = model(input_matrix)
         predictions = log_probs.argmax(dim=1)
         return predictions
@@ -55,7 +52,7 @@ def train(num_epochs, config, data_loader, multigpu = False):
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         #dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
         model = nn.DataParallel(model)    
-    model.to(device)
+    model = cudaify(model)
     loss_function = nn.NLLLoss()
     optimizer = config.create_optimizer_factory()(model.parameters())
     best_model = None
@@ -66,7 +63,7 @@ def train(num_epochs, config, data_loader, multigpu = False):
         model.zero_grad()
         loader, test_loader = data_loader.get_loaders(epoch)
         for data, response in loader:
-            input_matrix = data.to(device)
+            input_matrix = cudaify(data)
             log_probs = model(input_matrix)
             loss = loss_function(log_probs, response)
             loss.backward()
