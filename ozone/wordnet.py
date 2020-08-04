@@ -111,7 +111,7 @@ def find_lowest_common_ancestor(words):
     return sortedHypernyms[0]
 
 class GetRandomSynset:
-    def __init__(self, root_synset = 'dog.n.1'):
+    def __init__(self, root_synset):
         entity = wn.synset(root_synset)
         self.entity_hyps = get_all_hyponyms_from_sense(entity)
         specificity = Specificity()

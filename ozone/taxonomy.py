@@ -55,9 +55,15 @@ class WordnetTaxonomy(Taxonomy):
     def random_non_hyponym(self, node):
         node = wn.synset(node)
         hyps = get_all_lemmas_from_sense(node) # children?
-        random_hyp = self.synset_gen.random_non_hyponym(node.name())
-        random_hyp_lemmas = set(get_all_lemmas_from_sense(random_hyp))
-        random_hyp_lemmas -= hyps
+        counter = 0
+        random_hyp_lemmas = []
+        while len(random_hyp_lemmas) == 0:
+            if counter > 10000:
+                raise Exception('Too difficult to get a non-hyponym for {}; giving up'.format(node.name()))
+            random_hyp = self.synset_gen.random_non_hyponym(node.name())
+            random_hyp_lemmas = set(get_all_lemmas_from_sense(random_hyp))
+            random_hyp_lemmas -= hyps
+            counter += 1
         random_word = random.choice(list(random_hyp_lemmas))
         return random_word
 
