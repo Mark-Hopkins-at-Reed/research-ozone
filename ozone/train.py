@@ -39,7 +39,7 @@ def train(num_epochs, config, data_loader, multigpu = False):
                 best_test_acc = test_acc
                 best_model = model
                 print('saving new model')
-                torch.save(best_model, 'best.model')
+                torch.save(best_model, 'best.model2')
         return best_model, best_test_acc, test_acc
     
     def maybe_report_time():

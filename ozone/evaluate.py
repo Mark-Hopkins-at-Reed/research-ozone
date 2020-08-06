@@ -1,44 +1,52 @@
-import random
 import torch
 import numpy as np 
 from torch import tensor
-from ozone.train import predict, train
-from ozone.puzzle import PuzzleDataLoader
-from ozone.experiment import TrainingConfig, DEFAULT, BPE_CONFIG
+from ozone.train import evaluate
+from torch.utils.data import Dataset, DataLoader
+from ozone.puzzle import PuzzleDataset, make_puzzle_targets
+from ozone.experiment import TrainingConfig, BPE_CONFIG
 
-
-class PuzzleEvaluater:
-
-    def __init__(self, model, generator, file_path, num_choice):
-        self.model = model 
-        self.generator = generator
-        self._build_puzzle(file_path, num_choice)
-
+class TestDataset(PuzzleDataset):
+    def __init__(self, puzzle_generator, num_choice, test_file):
+        self.num_choices = puzzle_generator.num_choices()
+        self.puzzle_generator = puzzle_generator
+        puzzles = self._build_puzzle(test_file, num_choice)
+        self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
+        self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(puzzles)
+        self.vocab = puzzle_generator.get_vocab()
+    
     def _build_puzzle(self, file_path, num_choice):
-        reader = open(file_path).read().split('\n')
-        puzzles = [line.split("    ")[1:] for line in reader]
-        results = []
-        for puzzle in puzzles:
-            assert len(puzzle) == num_choice, "Input puzzle has a wrong length"
-            index = np.random.permutation(num_choice)
-            if self.generator.__class__.__name__ == "TaxonomyPuzzleGenerator":
-                results.append((tuple([puzzle[i] for i in index]), index.tolist().index(0)))
-            if self.generator.__class__.__name__ == "BpePuzzleGenerator":
-                tok_puzzle = self.generator.bpe.apply([puzzle[i] for i in index])
-                results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
-        self.puzzles = results
+        with open(file_path, 'r') as reader:
+            puzzles = []
+            for line in reader:
+                line = line.lower()
+                new = line.replace('-', ' ')
+                new = new.replace('\n', '')
+                puzzles.append(new.split("\t")[1:])             
+        return self.puzzle_generator.build_from_file(puzzles, num_choice)
+    
+class TestDataloader:
+    
+    def __init__(self, test_dataset):
+        self.train_data = test_dataset
+        self.train_loader = DataLoader(dataset = self.train_data, 
+                                       shuffle=False)
+    def _regenerate(self):
+        pass
+    
+    def get_loaders(self):
+        return self.train_loader, None
+        
+        
 
-    def evaluate(self):
-        predictions = predict(self.model, self.generator.make_puzzle_matrix(self.puzzles))
-        answers = tensor([answer for _,answer in self.puzzles])
-        return sum(np.equal(predictions, answers)).item()/len(predictions)
 
 if __name__ == '__main__':
     import sys
-    file_path = sys.argv[1]
+    test_file = sys.argv[1]
     num_choice = int(sys.argv[2])
-    config = TrainingConfig(BPE_CONFIG)
     model = torch.load("best.model")
+    config = TrainingConfig(BPE_CONFIG)
     puzzle_gen = config.create_puzzle_generator()
-    evaluator = PuzzleEvaluater(model, puzzle_gen, file_path, num_choice)
-    print(evaluator.evaluate())
+    test_dataset = TestDataset(puzzle_gen, num_choice, test_file)
+    test_dataloader = TestDataloader(test_dataset).get_loaders()[0]
+    print(evaluate(model, test_dataloader))

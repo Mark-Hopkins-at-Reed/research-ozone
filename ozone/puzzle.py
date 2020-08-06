@@ -1,4 +1,5 @@
 import fastBPE
+import numpy as np
 from ozone.util import cudaify, FloatTensor, LongTensor
 from torch.utils.data import Dataset, DataLoader
 
@@ -115,6 +116,15 @@ class BpePuzzleGenerator(PuzzleGenerator):
             matrix.append(oneHotVec)
         result = cudaify(FloatTensor(matrix))
         return result 
+    
+    def build_from_file(self, puzzles, num_choice):
+        results = []
+        for puzzle in puzzles:
+            assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
+            index = np.random.permutation(num_choice)
+            tok_puzzle = self.bpe.apply([puzzle[i] for i in index])
+            results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
+        return results 
 
     @staticmethod
     def from_paths(base_puzzle_gen, train_file_path, vocab_file_path, num_tok):
