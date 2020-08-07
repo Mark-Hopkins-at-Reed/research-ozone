@@ -92,7 +92,7 @@ class TaxonomyPuzzleGenerator(PuzzleGenerator):
         onehot = [j for (_, j) in result]    
         return (xyz, onehot.index(1))
     
-    def build_from_file(self, puzzles, num_choice):
+    def tensorify(self, puzzles, num_choice):
         results = []
         for puzzle in puzzles:
             assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"

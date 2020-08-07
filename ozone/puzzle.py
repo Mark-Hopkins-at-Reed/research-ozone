@@ -117,7 +117,7 @@ class BpePuzzleGenerator(PuzzleGenerator):
         result = cudaify(FloatTensor(matrix))
         return result 
     
-    def build_from_file(self, puzzles, num_choice):
+    def tensorify(self, puzzles, num_choice):
         results = []
         for puzzle in puzzles:
             assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
