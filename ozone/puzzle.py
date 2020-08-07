@@ -1,4 +1,5 @@
 import fastBPE
+import numpy as np
 from ozone.util import cudaify, FloatTensor, LongTensor
 from torch.utils.data import Dataset, DataLoader
 
@@ -54,11 +55,12 @@ class BpePuzzleGenerator(PuzzleGenerator):
     Generate the tokenized puzzle
     
     """
-    def __init__(self, base_puzzle_gen, vocab, bpe):
+    def __init__(self, base_puzzle_gen, vocab, bpe, num_tok):
         super(BpePuzzleGenerator, self).__init__()
         self.vocab = vocab
         self.bpe = bpe
         self.base_puzzle_gen = base_puzzle_gen
+        self.num_tok = num_tok
       
     def num_choices(self):
         return self.base_puzzle_gen.num_choices()
@@ -105,21 +107,30 @@ class BpePuzzleGenerator(PuzzleGenerator):
             oneHotVec = []
             for choice in choices:
                 choice_Vec_list = [one_hot(tok, self.vocab) for tok in choice]
-                if len(choice_Vec_list) > 4:
-                    choice_Vec_list[4] = [sum(vec) for vec in zip(*choice_Vec_list[4:])]
-                    choice_Vec_list = choice_Vec_list[:5]
+                if len(choice_Vec_list) > (self.num_tok - 1):
+                    choice_Vec_list[self.num_tok - 1] = [sum(vec) for vec in zip(*choice_Vec_list[self.num_tok-1:])]
+                    choice_Vec_list = choice_Vec_list[:self.num_tok]
                 result = [tok for word in choice_Vec_list for tok in word]
-                appendix = [0] * (5*len(self.vocab) - len(result))
+                appendix = [0] * (self.num_tok*len(self.vocab) - len(result))
                 oneHotVec += result + appendix 
             matrix.append(oneHotVec)
         result = cudaify(FloatTensor(matrix))
         return result 
+    
+    def tensorify(self, puzzles, num_choice):
+        results = []
+        for puzzle in puzzles:
+            assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
+            index = np.random.permutation(num_choice)
+            tok_puzzle = self.bpe.apply([puzzle[i] for i in index])
+            results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
+        return results 
 
     @staticmethod
-    def from_paths(base_puzzle_gen, train_file_path, vocab_file_path):
+    def from_paths(base_puzzle_gen, train_file_path, vocab_file_path, num_tok):
         vocab = BpePuzzleGenerator._read_vocab(vocab_file_path)
         bpe = fastBPE.fastBPE(train_file_path, vocab_file_path)
-        return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe)
+        return BpePuzzleGenerator(base_puzzle_gen, vocab, bpe, num_tok)
     
 class PuzzleDataset(Dataset):
 

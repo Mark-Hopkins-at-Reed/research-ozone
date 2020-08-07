@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from ozone.wordnet import GetRandomSynset
 from ozone.wordnet import get_all_lemmas_from_sense
 from ozone.puzzle import PuzzleGenerator
@@ -96,4 +97,12 @@ class TaxonomyPuzzleGenerator(PuzzleGenerator):
         xyz = tuple([i for (i, _) in result])
         onehot = [j for (_, j) in result]    
         return (xyz, onehot.index(1))
+    
+    def tensorify(self, puzzles, num_choice):
+        results = []
+        for puzzle in puzzles:
+            assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
+            index = np.random.permutation(num_choice)
+            results.append((tuple([puzzle[i] for i in index]), index.tolist().index(0)))
+        return results 
     
