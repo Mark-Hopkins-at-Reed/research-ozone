@@ -65,7 +65,7 @@ def train(num_epochs, config, data_loader, multigpu = False):
         for data, response in loader:
             input_matrix = cudaify(data)
             log_probs = model(input_matrix)
-            loss = loss_function(log_probs, response)
+            loss = loss_function(log_probs, response.to(device))
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
