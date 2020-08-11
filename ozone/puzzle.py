@@ -63,12 +63,13 @@ class BpePuzzleGenerator(PuzzleGenerator):
     Generate the tokenized puzzle
     
     """
-    def __init__(self, base_puzzle_gen, vocab, bpe, num_tok):
+    def __init__(self, base_puzzle_gen, vocab, bpe, num_tok, debugging=False):
         super(BpePuzzleGenerator, self).__init__()
         self.vocab = vocab
         self.bpe = bpe
         self.base_puzzle_gen = base_puzzle_gen
         self.num_tok = num_tok
+        self.debugging = debugging
       
     def num_choices(self):
         return self.base_puzzle_gen.num_choices()
@@ -129,7 +130,9 @@ class BpePuzzleGenerator(PuzzleGenerator):
         results = []
         for puzzle in puzzles:
             assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
-            index = np.random.permutation(num_choice)
+            index = np.array(list(range(num_choice)))
+            if not self.debugging:
+                index = np.random.permutation(num_choice)
             tok_puzzle = self.bpe.apply([puzzle[i] for i in index])
             results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
         return results 

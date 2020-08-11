@@ -1,24 +1,24 @@
-import types
 import unittest
 from ozone.puzzle import PuzzleGenerator, BpePuzzleGenerator
-from ozone.experiment import TrainingConfig, BPE_CONFIG
 from ozone.oddone import OddOneOutDataset, OddOneOutDataloader
 
 class SimplePuzzleGenerator(PuzzleGenerator):
     
     def __init__(self):
         super().__init__()
-        self.vocab = {'aaa': 0, 'aea': 1, 'eaa': 2, 'eea': 3, 'aae': 4, 
-                      'a e a': 5, 'bbb': 6, 'a\'s': 7}
+        self.vocab = {'aaa': 0, 'aea': 1, 'tea': 2, 'eea': 3, 'aae': 4, 
+                      'a e a': 5, 'ete': 6, "t'a": 7, 'eta': 8}
     
     def get_vocab(self):
         return self.vocab
 
     def num_choices(self):
         return 5 
+    
+    def max_tokens_per_choice(self):
+        return 1
 
     def tensorify(self, puzzles, num_choice):
-        # delete randomness in the test
         results = []
         for puzzle in puzzles:
             assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
@@ -26,55 +26,134 @@ class SimplePuzzleGenerator(PuzzleGenerator):
             results.append((tuple([puzzle[i] for i in index]), index.index(0)))
         return results 
 
-def new_tensorify(self, puzzles, num_choice):
-            # delete randomness 
-            results = []
-            for puzzle in puzzles:
-                assert len(puzzle) == int(num_choice), "Input puzzle has a wrong length"
-                index = list(range(5))
-                tok_puzzle = self.bpe.apply([puzzle[i] for i in index])
-                results.append(([word.split(" ") for word in tok_puzzle],index.index(0)))
-            return results 
+class SimpleBpePuzzleGenerator:
+    
+    def __init__(self):
+        pass
+    
+    def num_choices(self):
+        return 5
+    
+    def batch_generate(self, number_of_puzzles = 10):
+        return [(("eat", "ate", "ete", "tea", "tee"), 2)]
+ 
+    def generate(self):
+        return (("eat", "ate", "ete", "tea", "tee"), 2)
+    
 
-class test_oddoneoutdataloaderut(unittest.TestCase):
+
+class TestOddoneDefault(unittest.TestCase):
     
     def setUp(self):
-        test_file = "test/data/test.tsv"
+        test_file = "test/data/oddone.utf8.tsv"
         s = SimplePuzzleGenerator()
-        b = TrainingConfig(BPE_CONFIG).create_puzzle_generator()
-        b.tensorify = types.MethodType(new_tensorify, b)
-        self.ooodataset_default = OddOneOutDataset(s, 5, test_file)
-        self.ooodataset_bpe = OddOneOutDataset(b, 5, test_file)
+        self.dataset = OddOneOutDataset(s, 5, test_file)
 
     def test_puzzles(self):
-        assert self.ooodataset_bpe.puzzles == [([['a@@', 'a@@', 'a'], 
-                                                 ['aea'], ['e@@', 'a@@', 'a'], 
-                                                 ['e@@', 'ea'], ['a@@', 'ae']], 0), 
-                                               ([['a', 'e', 'a'], ['b@@', 'b@@', 'b'], 
-                                                ['aea'], ['a@@', "'s"], ['aea']], 0)]
+        assert len(self.dataset) == 2
+        (puzzle_vec, label) = self.dataset[0]
+        assert label.item() == 0
+        assert self.dataset.input_size() == 5 * 9
+        assert self.dataset.output_size() == 5
+        assert puzzle_vec.tolist() == [1., 0., 0., 0., 0., 0., 0., 0., 0., #aaa
+                                       0., 1., 0., 0., 0., 0., 0., 0., 0.,#aea
+                                       0., 0., 1., 0., 0., 0., 0., 0., 0.,#tea
+                                       0., 0., 0., 1., 0., 0., 0., 0., 0.,#eea
+                                       0., 0., 0., 0., 1., 0., 0., 0., 0.]#aae
+        
 
-        assert self.ooodataset_default.puzzles == [(('aaa', 'aea', 'eaa', 'eea', 'aae'), 0), 
-                                                   (('a e a', 'bbb', 'aea', "a's", 'aea'), 0)]
-
-    def test_oddoneoutdataloader(self):
-        ooodataloader_default = OddOneOutDataloader(self.ooodataset_default).get_loaders()[0]
+    def test_dataloader(self):
+        dataloader = OddOneOutDataloader(self.dataset).get_loaders()[0]
         default = []
-        for data, response in ooodataloader_default:
+        for data, response in dataloader:
             default.append((data, response))
-        assert default[0][0].tolist() == [[1., 0., 0., 0., 0., 0., 0., 0., 
-                                           0., 1., 0., 0., 0., 0., 0., 0., 
-                                           0., 0., 1., 0., 0., 0., 0., 0., 
-                                           0., 0., 0., 1., 0., 0., 0., 0., 
-                                           0., 0., 0., 0., 1., 0., 0., 0.]]
+        assert default[0][0].tolist() == [[1., 0., 0., 0., 0., 0., 0., 0., 0., 
+                                           0., 1., 0., 0., 0., 0., 0., 0., 0.,
+                                           0., 0., 1., 0., 0., 0., 0., 0., 0.,
+                                           0., 0., 0., 1., 0., 0., 0., 0., 0.,
+                                           0., 0., 0., 0., 1., 0., 0., 0., 0.]]
 
         assert default[0][1].item() == 0 
 
-        ooodataloader_bpe = OddOneOutDataloader(self.ooodataset_bpe).get_loaders()[0]
-        bpe = []
-        for data, response in ooodataloader_bpe:
-            bpe.append((data, response))
-        assert len(bpe[0][0][0]) == len(self.ooodataset_bpe.vocab) * 5 * 5
-        assert bpe[0][1].item() == 0 
-
-
         
+
+class TestOddoneBpe(unittest.TestCase):
+    
+    def setUp(self):
+        test_file = "test/data/oddone.utf8.tsv"
+        codes_path = "test/data/small.codes"
+        vocab_path = "test/data/small.vocab"
+        num_tokens = 5
+        b = BpePuzzleGenerator.from_paths(SimpleBpePuzzleGenerator(), 
+                                          codes_path, 
+                                          vocab_path, num_tokens)
+        b.debugging = True
+        self.dataset = OddOneOutDataset(b, 5, test_file)
+                                                 
+
+    def test_puzzles(self):
+        assert len(self.dataset) == 2
+        (puzzle_vec, label) = self.dataset[0]
+        assert label.item() == 0
+        assert self.dataset.input_size() == 5 * 8 * 5
+        assert self.dataset.output_size() == 5
+        expected = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #a@@
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #a@@
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, #a
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #null
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #null
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        assert puzzle_vec.tolist() == expected 
+
+
+    def test_dataloader(self):
+        dataloader = OddOneOutDataloader(self.dataset).get_loaders()[0]
+        default = []
+        for data, response in dataloader:
+            default.append((data, response))
+        expected =[[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #a@@
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #a@@
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, #a
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #null
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, #null
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+        assert default[0][0].tolist() == expected
+        assert default[0][1].item() == 0 
