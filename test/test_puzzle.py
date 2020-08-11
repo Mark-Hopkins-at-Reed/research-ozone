@@ -23,7 +23,7 @@ class TestPuzzle(unittest.TestCase):
         taxonomy = WordnetTaxonomy("apple.n.01")
         self.generator = TaxonomyPuzzleGenerator(taxonomy, 3)
         codes_path = "test/data/small.codes"
-        vocab_path = "test/data/small.vocab"
+        vocab_path = "test/data/small2.vocab"
         num_tokens = 5
         self.bpe = BpePuzzleGenerator.from_paths(SimplePuzzleGenerator(), 
                                                  codes_path, 

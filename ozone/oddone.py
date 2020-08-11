@@ -1,4 +1,5 @@
 import torch
+import unicodedata
 from ozone.train import evaluate
 from torch.utils.data import DataLoader
 from ozone.puzzle import PuzzleDataset, make_puzzle_targets
@@ -8,9 +9,9 @@ class OddOneOutDataset(PuzzleDataset):
     def __init__(self, puzzle_generator, num_choice, test_file):
         self.num_choices = puzzle_generator.num_choices()
         self.puzzle_generator = puzzle_generator
-        puzzles = self._build_puzzle(test_file, num_choice)
-        self.response_vector = make_puzzle_targets([label for (_, label) in puzzles])
-        self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(puzzles)
+        self.puzzles = self._build_puzzle(test_file, num_choice)
+        self.response_vector = make_puzzle_targets([label for (_, label) in self.puzzles])
+        self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(self.puzzles)
         self.vocab = puzzle_generator.get_vocab()
     
     def _build_puzzle(self, file_path, num_choice):
@@ -20,7 +21,8 @@ class OddOneOutDataset(PuzzleDataset):
                 line = line.lower()
                 new = line.replace('-', ' ')
                 new = new.replace('\n', '')
-                puzzles.append(new.split("\t")[1:])             
+                new = unicodedata.normalize('NFD', new).encode('ascii', 'ignore').decode('utf8')
+                puzzles.append(new.split("\t")[1:])            
         return self.puzzle_generator.tensorify(puzzles, num_choice)
     
 class OddOneOutDataloader:
