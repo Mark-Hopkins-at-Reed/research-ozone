@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from ozone.puzzle import PuzzleDataset, make_puzzle_targets
 from ozone.experiment import TrainingConfig, BPE_CONFIG
 
-class OddOneOutDataset(PuzzleDataset):
+class OddOneOutDataset:
     def __init__(self, puzzle_generator, num_choice, test_file):
         self.num_choices = puzzle_generator.num_choices()
         self.puzzle_generator = puzzle_generator
@@ -13,6 +13,21 @@ class OddOneOutDataset(PuzzleDataset):
         self.response_vector = make_puzzle_targets([label for (_, label) in self.puzzles])
         self.evidence_matrix = self.puzzle_generator.make_puzzle_matrix(self.puzzles)
         self.vocab = puzzle_generator.get_vocab()
+
+    def input_size(self):
+        input_size = (len(self.vocab) * 
+                      self.num_choices * 
+                      self.puzzle_generator.max_tokens_per_choice())
+        return input_size
+
+    def output_size(self):
+        return self.puzzle_generator.num_choices()
+
+    def __getitem__(self, index):
+        return self.evidence_matrix[index], self.response_vector[index]
+    
+    def __len__(self):
+        return len(self.puzzles)
     
     def _build_puzzle(self, file_path, num_choice):
         with open(file_path, 'r') as reader:
@@ -22,7 +37,7 @@ class OddOneOutDataset(PuzzleDataset):
                 new = line.replace('-', ' ')
                 new = new.replace('\n', '')
                 new = unicodedata.normalize('NFD', new).encode('ascii', 'ignore').decode('utf8')
-                puzzles.append(new.split("\t")[1:])            
+                puzzles.append(new.split("\t")[1:]) 
         return self.puzzle_generator.tensorify(puzzles, num_choice)
     
 class OddOneOutDataloader:
@@ -51,5 +66,6 @@ if __name__ == '__main__':
     config = TrainingConfig(BPE_CONFIG)
     puzzle_gen = config.create_puzzle_generator()
     test_dataset = OddOneOutDataset(puzzle_gen, num_choice, test_file)
-    test_dataloader = OddOneOutDataloader(test_dataset).get_loaders()[0]
+    test_dataloader = OddOneOutDataloader(test_dataset).get_loaders()[0]  
+    model = model.eval()
     print(evaluate(model, test_dataloader))

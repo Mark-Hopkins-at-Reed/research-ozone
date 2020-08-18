@@ -2,17 +2,22 @@ import torch
 import torch.nn as nn
 import time
 from ozone.util import cudaify
+from ozone.oddone import OddOneOutDataset, OddOneOutDataloader
        
 def evaluate(model, loader):
     """Evaluates the trained network on test data."""
+    model.eval()
     correct = 0
     total = 0
     for data, response in loader:
+        print(response)        
         predictions = predict(model, data)
+        print(predictions)
         total += predictions.shape[0]
         for i in range(predictions.shape[0]):
-            if response[i].item() == predictions[i].item():
+            if response[i].item() == predictions[i].item():                
                 correct += 1
+        print('hi')
     return correct / total
 
 def predict(model, input_tensor):
@@ -30,8 +35,9 @@ def train(num_epochs, config, data_loader, multigpu = False):
         best_test_acc = prev_best_acc
         test_acc = None
         if epoch % 100 == 99:
+            ooo_acc = evaluate(model, ooo_loader)
             test_acc = evaluate(model, test_loader)
-            print('epoch {} test: {:.2f}'.format(epoch, test_acc))
+            print('epoch {} test: {:.2f}; ooo: {:.2f}'.format(epoch, test_acc, ooo_acc))
             if test_acc > prev_best_acc:
                 best_test_acc = test_acc
                 best_model = model
@@ -44,6 +50,10 @@ def train(num_epochs, config, data_loader, multigpu = False):
             finish_time = time.clock()
             time_per_epoch = (finish_time - start_time) / epoch
             print('Average time per epoch: {:.2} sec'.format(time_per_epoch))
+
+    puzzle_gen = config.create_puzzle_generator()
+    ooo_dataset = OddOneOutDataset(puzzle_gen, 5, 'data/ooo/living.tsv')
+    ooo_loader = OddOneOutDataloader(ooo_dataset).get_loaders()[0]  
 
     start_time = time.clock()
     net_factory = config.create_network_factory()
