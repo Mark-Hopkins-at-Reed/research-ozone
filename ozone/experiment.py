@@ -17,7 +17,7 @@ DEFAULT = {'puzzle': {'genre': 'wordnet', 'root': 'dog.n.01', 'numchoices': 5},
                        'dropout': {'prob': 0.2}}
            }
 
-BPE_CONFIG = {'puzzle': {'genre': 'wordnet', 'root': 'dog.n.01', 'numchoices': 5},
+BPE_CONFIG = {'puzzle': {'genre': 'wordnet', 'root': 'living_thing.n.01', 'numchoices': 5},
               'tokenizer': {'name': 'bpe', 
                             'codes': 'data/codes_10k', 
                             'vocab': 'data/vocab_10k.txt', 

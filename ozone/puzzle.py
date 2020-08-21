@@ -129,12 +129,14 @@ class BpePuzzleGenerator(PuzzleGenerator):
     def tensorify(self, puzzles, num_choice):
         results = []
         for puzzle in puzzles:
-            if len(puzzle) == int(num_choice):
-                index = np.array(list(range(num_choice)))
-                if not self.debugging:
-                    index = np.random.permutation(num_choice)
-                tok_puzzle = self.bpe.apply([puzzle[i] for i in index])
-                results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
+            assert len(puzzle) == int(num_choice)
+            index = np.array(list(range(num_choice)))
+            if not self.debugging:
+                index = np.random.permutation(num_choice)
+            randomized = [puzzle[i] for i in index]
+            print(randomized)
+            tok_puzzle = self.bpe.apply(randomized)
+            results.append(([word.split(" ") for word in tok_puzzle],index.tolist().index(0)))
         return results 
 
     @staticmethod
