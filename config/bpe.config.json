@@ -1,7 +1,7 @@
 [{
     "puzzle": {
         "genre": "wordnet",
-        "root": "dog.n.01",
+        "root": "living_thing.n.01",
         "numchoices": 5
     },
     "tokenizer": {
