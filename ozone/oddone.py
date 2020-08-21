@@ -1,9 +1,6 @@
-import torch
 import unicodedata
-from ozone.train import evaluate
 from torch.utils.data import DataLoader
-from ozone.puzzle import PuzzleDataset, make_puzzle_targets
-from ozone.experiment import TrainingConfig, BPE_CONFIG
+from ozone.puzzle import make_puzzle_targets
 
 class OddOneOutDataset:
     def __init__(self, puzzle_generator, num_choice, test_file):
@@ -53,19 +50,3 @@ class OddOneOutDataloader:
         return self.train_loader, None
         
         
-if __name__ == '__main__':
-    import sys
-    test_file = sys.argv[1]
-    num_choice = int(sys.argv[2])
-    model = sys.argv[3]
-    is_gpu = sys.argv[4]
-    if is_gpu == "cpu":
-        model = torch.load(model, map_location=torch.device('cpu'))
-    else:
-        model = torch.load(model)
-    config = TrainingConfig(BPE_CONFIG)
-    puzzle_gen = config.create_puzzle_generator()
-    test_dataset = OddOneOutDataset(puzzle_gen, num_choice, test_file)
-    test_dataloader = OddOneOutDataloader(test_dataset).get_loaders()[0]  
-    model = model.eval()
-    print(evaluate(model, test_dataloader))
